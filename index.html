@@ -7,7 +7,7 @@
     <style>
         :root { --forest: #2ECC71; --river: #3498DB; --volcano: #E74C3C; --space: #9B59B6; --bg: #F0F4F8; }
         body { font-family: 'PingFang TC', sans-serif; background: var(--bg); display: flex; justify-content: center; margin: 0; padding: 20px; }
-        #game-container { width: 100%; max-width: 500px; background: white; padding: 20px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); text-align: center; }
+        #game-container { width: 100%; max-width: 500px; background: white; padding: 20px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); text-align: center; position: relative; }
         
         /* 地圖選擇介面 */
         .map-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
@@ -16,13 +16,30 @@
         
         /* 遊戲介面 */
         #game-ui { display: none; }
-        .stats { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 1.1rem; }
-        #timer-bar { width: 100%; height: 10px; background: #eee; border-radius: 5px; margin-bottom: 20px; overflow: hidden; }
-        #timer-progress { width: 100%; height: 100%; background: #FFD93D; transition: width 1s linear; }
-        #question { font-size: 4.5rem; margin: 30px 0; color: #333; }
+        .stats { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 1.1rem; }
+        
+        /* 強化倒數計時 */
+        #timer-container { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+        #timer-bar { flex-grow: 1; height: 15px; background: #eee; border-radius: 10px; overflow: hidden; border: 1px solid #ddd; }
+        #timer-progress { width: 100%; height: 100%; background: #FFD93D; transition: width 1s linear, background-color 0.3s; }
+        #timer-text { font-weight: bold; font-family: monospace; font-size: 1.2rem; min-width: 30px; }
+        .timer-low { background-color: #ff4757 !important; animation: blink 0.5s infinite; }
+
+        @keyframes blink { 50% { opacity: 0.5; } }
+
+        /* 按鈕控制區 */
+        .control-btns { display: flex; gap: 10px; margin-bottom: 15px; }
+        .ctrl-btn { flex: 1; padding: 10px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; color: white; }
+        .btn-pause { background: #f39c12; }
+        .btn-back { background: #95a5a6; }
+        
+        #question { font-size: 4.5rem; margin: 20px 0; color: #333; transition: opacity 0.3s; }
+        .paused-overlay { opacity: 0.1; pointer-events: none; }
+
         .options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .opt-btn { padding: 20px; font-size: 2rem; border: none; border-radius: 15px; background: #f8f9fa; color: #333; box-shadow: 0 5px 0 #ddd; cursor: pointer; }
         .opt-btn:active { transform: translateY(3px); box-shadow: none; }
+        .opt-btn:disabled { background: #eee; color: #bbb; cursor: not-allowed; }
         
         /* 費曼提示區 */
         #feynman-box { margin-top: 20px; padding: 15px; background: #FFF9C4; border-radius: 15px; display: none; border: 2px dashed #FBC02D; }
@@ -43,13 +60,25 @@
     </div>
 
     <div id="game-ui">
+        <div class="control-btns">
+            <button class="ctrl-btn btn-back" onclick="goBack()">⬅ 返回目錄</button>
+            <button id="pause-btn" class="ctrl-btn btn-pause" onclick="togglePause()">⏸ 暫停</button>
+        </div>
+
         <div class="stats">
-            <span id="current-zone">區域</span>
+            <span id="current-zone" style="font-weight: bold; color: #555;">區域</span>
             <span id="score-display">得分: 0</span>
         </div>
-        <div id="timer-bar"><div id="timer-progress"></div></div>
-        <div id="question">6 × 7</div>
-        <div class="options" id="options-grid"></div>
+
+        <div id="timer-container">
+            <div id="timer-bar"><div id="timer-progress"></div></div>
+            <span id="timer-text">60</span>
+        </div>
+
+        <div id="question-area">
+            <div id="question">6 × 7</div>
+            <div class="options" id="options-grid"></div>
+        </div>
         
         <div id="feynman-box">
             <p style="margin:0 0 10px 0; font-weight:bold; color:#D4A017;">💡 老師怪獸教教你：</p>
@@ -65,43 +94,90 @@
     let timerId;
     let currentAns = 0;
     let activeRange = [];
+    let isPaused = false;
+    let currentN1, currentN2;
 
     function startLevel(zoneName, range) {
         score = 0;
         timeLeft = 60;
+        isPaused = false;
         activeRange = range;
+        
         document.getElementById('map-select').style.display = 'none';
         document.getElementById('game-ui').style.display = 'block';
         document.getElementById('main-title').innerText = "衝刺中！";
         document.getElementById('current-zone').innerText = zoneName;
         document.getElementById('score-display').innerText = `得分: 0`;
+        document.getElementById('pause-btn').innerText = "⏸ 暫停";
         
+        // 重置倒數計時器
+        if(timerId) clearInterval(timerId);
         updateTimer();
         nextQuestion();
     }
 
     function updateTimer() {
         timerId = setInterval(() => {
-            timeLeft--;
-            document.getElementById('timer-progress').style.width = (timeLeft/60)*100 + "%";
-            if (timeLeft <= 0) {
-                clearInterval(timerId);
-                showResult();
+            if (!isPaused) {
+                timeLeft--;
+                const progress = document.getElementById('timer-progress');
+                const text = document.getElementById('timer-text');
+                
+                progress.style.width = (timeLeft/60)*100 + "%";
+                text.innerText = timeLeft;
+
+                // 視覺強化：最後10秒變色
+                if (timeLeft <= 10) {
+                    progress.classList.add('timer-low');
+                } else {
+                    progress.classList.remove('timer-low');
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerId);
+                    showResult();
+                }
             }
         }, 1000);
     }
 
+    function togglePause() {
+        isPaused = !isPaused;
+        const btn = document.getElementById('pause-btn');
+        const questionArea = document.getElementById('question-area');
+        const optBtns = document.querySelectorAll('.opt-btn');
+
+        if (isPaused) {
+            btn.innerText = "▶ 繼續";
+            btn.style.background = "#2ECC71";
+            questionArea.classList.add('paused-overlay');
+            optBtns.forEach(b => b.disabled = true);
+        } else {
+            btn.innerText = "⏸ 暫停";
+            btn.style.background = "#f39c12";
+            questionArea.classList.remove('paused-overlay');
+            optBtns.forEach(b => b.disabled = false);
+        }
+    }
+
+    function goBack() {
+        if (confirm("確定要放棄目前的進度返回目錄嗎？")) {
+            clearInterval(timerId);
+            location.reload();
+        }
+    }
+
     function nextQuestion() {
         document.getElementById('feynman-box').style.display = 'none';
-        const n1 = activeRange[Math.floor(Math.random() * activeRange.length)];
-        const n2 = Math.floor(Math.random() * 8) + 2;
-        currentAns = n1 * n2;
+        currentN1 = activeRange[Math.floor(Math.random() * activeRange.length)];
+        currentN2 = Math.floor(Math.random() * 8) + 2;
+        currentAns = currentN1 * currentN2;
         
-        document.getElementById('question').innerText = `${n1} × ${n2}`;
+        document.getElementById('question').innerText = `${currentN1} × ${currentN2}`;
         
         // 產生選項
-        let options = [currentAns, currentAns + n1, currentAns - n1];
-        if (currentAns - n1 <= 0) options[2] = currentAns + 5;
+        let options = [currentAns, currentAns + currentN1, currentAns - currentN1];
+        if (currentAns - currentN1 <= 0) options[2] = currentAns + 5;
         options = [...new Set(options)].sort(() => Math.random() - 0.5);
 
         const grid = document.getElementById('options-grid');
@@ -110,7 +186,7 @@
             const btn = document.createElement('button');
             btn.className = 'opt-btn';
             btn.innerText = opt;
-            btn.onclick = () => check(opt, n1, n2);
+            btn.onclick = () => { if(!isPaused) check(opt, currentN1, currentN2); };
             grid.appendChild(btn);
         });
     }
@@ -146,10 +222,10 @@
     function showResult() {
         const status = score >= 10 ? "🎉 太棒了！成功晉級！" : "😅 再試一次，你可以的！";
         document.getElementById('game-ui').innerHTML = `
-            <h2>遊戲結束</h2>
+            <h2 style="font-size:2rem; margin-top:40px;">遊戲結束</h2>
             <p style="font-size:1.5rem">${status}</p>
-            <p>你答對了 ${score} 題</p>
-            <button class="opt-btn" style="width:100%; background:var(--forest); color:white;" onclick="location.reload()">回地圖</button>
+            <p style="font-size:1.2rem; color:#666;">你答對了 ${score} 題</p>
+            <button class="opt-btn" style="width:100%; background:var(--forest); color:white; margin-top:20px;" onclick="location.reload()">回地圖</button>
         `;
     }
 </script>
