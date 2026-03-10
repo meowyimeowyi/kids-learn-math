@@ -3,44 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>怪獸乘法地圖 - 費曼學習版</title>
+    <title>怪獸乘法地圖 - Monster Math Map</title>
     <style>
         :root { --forest: #2ECC71; --river: #3498DB; --volcano: #E74C3C; --space: #9B59B6; --bg: #F0F4F8; }
-        body { font-family: 'PingFang TC', sans-serif; background: var(--bg); display: flex; justify-content: center; margin: 0; padding: 20px; }
-        #game-container { width: 100%; max-width: 500px; background: white; padding: 20px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); text-align: center; position: relative; }
+        body { font-family: 'PingFang TC', 'Arial', sans-serif; background: var(--bg); display: flex; justify-content: center; margin: 0; padding: 20px; }
+        #game-container { width: 100%; max-width: 500px; background: white; padding: 20px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); text-align: center; }
         
         /* 地圖選擇介面 */
         .map-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
-        .map-card { padding: 30px 10px; border-radius: 20px; color: white; cursor: pointer; font-weight: bold; font-size: 1.2rem; transition: 0.3s; }
-        .map-card:active { transform: scale(0.9); }
+        .map-card { padding: 20px 10px; border-radius: 20px; color: white; cursor: pointer; transition: 0.3s; }
+        .map-card div { font-weight: bold; font-size: 1.1rem; }
+        .map-card span { font-size: 0.8rem; opacity: 0.9; }
+        .map-card:active { transform: scale(0.95); }
         
         /* 遊戲介面 */
         #game-ui { display: none; }
-        .stats { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 1.1rem; }
+        .stats { display: flex; justify-content: space-between; margin-bottom: 15px; font-weight: bold; color: #555; }
         
         /* 強化倒數計時 */
-        #timer-container { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
-        #timer-bar { flex-grow: 1; height: 15px; background: #eee; border-radius: 10px; overflow: hidden; border: 1px solid #ddd; }
-        #timer-progress { width: 100%; height: 100%; background: #FFD93D; transition: width 1s linear, background-color 0.3s; }
-        #timer-text { font-weight: bold; font-family: monospace; font-size: 1.2rem; min-width: 30px; }
-        .timer-low { background-color: #ff4757 !important; animation: blink 0.5s infinite; }
+        #timer-wrapper { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+        #timer-bar { flex-grow: 1; height: 20px; background: #eee; border-radius: 10px; overflow: hidden; border: 2px solid #ddd; }
+        #timer-progress { width: 100%; height: 100%; background: #FFD93D; transition: width 1s linear; }
+        #timer-text { font-size: 1.2rem; font-weight: bold; min-width: 40px; color: #333; }
+        
+        /* 時間快到時的動畫 */
+        .timer-urgent { background-color: #ff4757 !important; animation: pulse 0.6s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
 
-        @keyframes blink { 50% { opacity: 0.5; } }
+        #question { font-size: 4.5rem; margin: 20px 0; color: #333; transition: 0.3s; }
+        .paused-state { filter: blur(8px); pointer-events: none; opacity: 0.3; }
 
-        /* 按鈕控制區 */
-        .control-btns { display: flex; gap: 10px; margin-bottom: 15px; }
-        .ctrl-btn { flex: 1; padding: 10px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; color: white; }
+        .options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .opt-btn { padding: 20px; font-size: 2.2rem; border: none; border-radius: 15px; background: #f8f9fa; color: #333; box-shadow: 0 5px 0 #ddd; cursor: pointer; }
+        .opt-btn:active { transform: translateY(3px); box-shadow: none; }
+
+        /* 下方功能按鈕區 */
+        .control-area { display: flex; gap: 15px; margin-top: 20px; padding-top: 20px; border-top: 2px solid #f0f0f0; }
+        .ctrl-btn { flex: 1; padding: 12px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; color: white; display: flex; flex-direction: column; align-items: center; }
         .btn-pause { background: #f39c12; }
         .btn-back { background: #95a5a6; }
-        
-        #question { font-size: 4.5rem; margin: 20px 0; color: #333; transition: opacity 0.3s; }
-        .paused-overlay { opacity: 0.1; pointer-events: none; }
+        .ctrl-btn span { font-size: 0.7rem; text-transform: uppercase; }
 
-        .options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .opt-btn { padding: 20px; font-size: 2rem; border: none; border-radius: 15px; background: #f8f9fa; color: #333; box-shadow: 0 5px 0 #ddd; cursor: pointer; }
-        .opt-btn:active { transform: translateY(3px); box-shadow: none; }
-        .opt-btn:disabled { background: #eee; color: #bbb; cursor: not-allowed; }
-        
         /* 費曼提示區 */
         #feynman-box { margin-top: 20px; padding: 15px; background: #FFF9C4; border-radius: 15px; display: none; border: 2px dashed #FBC02D; }
         .dot-group { display: inline-block; margin: 5px; border: 2px solid #FBC02D; padding: 3px; border-radius: 8px; background: white; }
@@ -50,40 +53,52 @@
 <body>
 
 <div id="game-container">
-    <h2 id="main-title">乘法冒險地圖</h2>
+    <h2 id="main-title">乘法冒險地圖<br><small style="font-size: 0.9rem; color: #888;">Monster Math Map</small></h2>
 
     <div id="map-select" class="map-grid">
-        <div class="map-card" style="background: var(--forest)" onclick="startLevel('2-3 森林', [2,3])">🌲 2-3 森林</div>
-        <div class="map-card" style="background: var(--river)" onclick="startLevel('4-5 河流', [4,5])">💧 4-5 河流</div>
-        <div class="map-card" style="background: var(--volcano)" onclick="startLevel('6-7 火山', [6,7])">🔥 6-7 火山</div>
-        <div class="map-card" style="background: var(--space)" onclick="startLevel('8-9 太空', [8,9])">🚀 8-9 太空</div>
+        <div class="map-card" style="background: var(--forest)" onclick="startLevel('🌲 森林 Forest', [2,3])">
+            <div>2-3 森林</div><span>Forest Zone</span>
+        </div>
+        <div class="map-card" style="background: var(--river)" onclick="startLevel('💧 河流 River', [4,5])">
+            <div>4-5 河流</div><span>River Zone</span>
+        </div>
+        <div class="map-card" style="background: var(--volcano)" onclick="startLevel('🔥 火山 Volcano', [6,7])">
+            <div>6-7 火山</div><span>Volcano Zone</span>
+        </div>
+        <div class="map-card" style="background: var(--space)" onclick="startLevel('🚀 太空 Space', [8,9])">
+            <div>8-9 太空</div><span>Space Zone</span>
+        </div>
     </div>
 
     <div id="game-ui">
-        <div class="control-btns">
-            <button class="ctrl-btn btn-back" onclick="goBack()">⬅ 返回目錄</button>
-            <button id="pause-btn" class="ctrl-btn btn-pause" onclick="togglePause()">⏸ 暫停</button>
-        </div>
-
         <div class="stats">
-            <span id="current-zone" style="font-weight: bold; color: #555;">區域</span>
-            <span id="score-display">得分: 0</span>
+            <span id="current-zone">區域 Zone</span>
+            <span id="score-display">得分 Score: 0</span>
         </div>
 
-        <div id="timer-container">
+        <div id="timer-wrapper">
             <div id="timer-bar"><div id="timer-progress"></div></div>
-            <span id="timer-text">60</span>
+            <div id="timer-text">60</div>
         </div>
 
-        <div id="question-area">
+        <div id="play-area">
             <div id="question">6 × 7</div>
             <div class="options" id="options-grid"></div>
         </div>
+
+        <div class="control-area">
+            <button id="pause-btn" class="ctrl-btn btn-pause" onclick="togglePause()">
+                <b>⏸ 暫停</b><span>Pause Game</span>
+            </button>
+            <button class="ctrl-btn btn-back" onclick="goBack()">
+                <b>⬅ 返回目錄</b><span>Back to Menu</span>
+            </button>
+        </div>
         
         <div id="feynman-box">
-            <p style="margin:0 0 10px 0; font-weight:bold; color:#D4A017;">💡 老師怪獸教教你：</p>
+            <p style="margin:0 0 10px 0; font-weight:bold; color:#D4A017;">💡 老師怪獸教教你 Monster Teacher Says:</p>
             <div id="dots-container"></div>
-            <p style="font-size:0.9rem; color:#666; margin-top:5px;">看！這就是答案的由來喔！</p>
+            <p style="font-size:0.9rem; color:#666; margin-top:5px;">看！這就是答案的由來！<br>See! This is how we get the answer!</p>
         </div>
     </div>
 </div>
@@ -95,22 +110,18 @@
     let currentAns = 0;
     let activeRange = [];
     let isPaused = false;
-    let currentN1, currentN2;
 
     function startLevel(zoneName, range) {
         score = 0;
         timeLeft = 60;
         isPaused = false;
         activeRange = range;
-        
         document.getElementById('map-select').style.display = 'none';
         document.getElementById('game-ui').style.display = 'block';
-        document.getElementById('main-title').innerText = "衝刺中！";
+        document.getElementById('main-title').innerHTML = "冒險進行中！<br><small style='font-size: 0.9rem;'>Adventure in Progress!</small>";
         document.getElementById('current-zone').innerText = zoneName;
-        document.getElementById('score-display').innerText = `得分: 0`;
-        document.getElementById('pause-btn').innerText = "⏸ 暫停";
+        document.getElementById('score-display').innerText = `得分 Score: 0`;
         
-        // 重置倒數計時器
         if(timerId) clearInterval(timerId);
         updateTimer();
         nextQuestion();
@@ -120,17 +131,19 @@
         timerId = setInterval(() => {
             if (!isPaused) {
                 timeLeft--;
-                const progress = document.getElementById('timer-progress');
+                const bar = document.getElementById('timer-progress');
                 const text = document.getElementById('timer-text');
                 
-                progress.style.width = (timeLeft/60)*100 + "%";
+                bar.style.width = (timeLeft/60)*100 + "%";
                 text.innerText = timeLeft;
 
-                // 視覺強化：最後10秒變色
+                // 倒數視覺強化
                 if (timeLeft <= 10) {
-                    progress.classList.add('timer-low');
+                    bar.classList.add('timer-urgent');
+                    text.style.color = "#E74C3C";
                 } else {
-                    progress.classList.remove('timer-low');
+                    bar.classList.remove('timer-urgent');
+                    text.style.color = "#333";
                 }
 
                 if (timeLeft <= 0) {
@@ -144,40 +157,35 @@
     function togglePause() {
         isPaused = !isPaused;
         const btn = document.getElementById('pause-btn');
-        const questionArea = document.getElementById('question-area');
-        const optBtns = document.querySelectorAll('.opt-btn');
-
+        const playArea = document.getElementById('play-area');
+        
         if (isPaused) {
-            btn.innerText = "▶ 繼續";
+            btn.innerHTML = "<b>▶ 繼續</b><span>Resume</span>";
             btn.style.background = "#2ECC71";
-            questionArea.classList.add('paused-overlay');
-            optBtns.forEach(b => b.disabled = true);
+            playArea.classList.add('paused-state');
         } else {
-            btn.innerText = "⏸ 暫停";
+            btn.innerHTML = "<b>⏸ 暫停</b><span>Pause Game</span>";
             btn.style.background = "#f39c12";
-            questionArea.classList.remove('paused-overlay');
-            optBtns.forEach(b => b.disabled = false);
+            playArea.classList.remove('paused-state');
         }
     }
 
     function goBack() {
-        if (confirm("確定要放棄目前的進度返回目錄嗎？")) {
-            clearInterval(timerId);
+        if (confirm("要離開目前的挑戰嗎？\nQuit current challenge?")) {
             location.reload();
         }
     }
 
     function nextQuestion() {
         document.getElementById('feynman-box').style.display = 'none';
-        currentN1 = activeRange[Math.floor(Math.random() * activeRange.length)];
-        currentN2 = Math.floor(Math.random() * 8) + 2;
-        currentAns = currentN1 * currentN2;
+        const n1 = activeRange[Math.floor(Math.random() * activeRange.length)];
+        const n2 = Math.floor(Math.random() * 8) + 2;
+        currentAns = n1 * n2;
         
-        document.getElementById('question').innerText = `${currentN1} × ${currentN2}`;
+        document.getElementById('question').innerText = `${n1} × ${n2}`;
         
-        // 產生選項
-        let options = [currentAns, currentAns + currentN1, currentAns - currentN1];
-        if (currentAns - currentN1 <= 0) options[2] = currentAns + 5;
+        let options = [currentAns, currentAns + n1, currentAns - n1];
+        if (currentAns - n1 <= 0) options[2] = currentAns + 5;
         options = [...new Set(options)].sort(() => Math.random() - 0.5);
 
         const grid = document.getElementById('options-grid');
@@ -186,7 +194,7 @@
             const btn = document.createElement('button');
             btn.className = 'opt-btn';
             btn.innerText = opt;
-            btn.onclick = () => { if(!isPaused) check(opt, currentN1, currentN2); };
+            btn.onclick = () => { if(!isPaused) check(opt, n1, n2); };
             grid.appendChild(btn);
         });
     }
@@ -194,7 +202,7 @@
     function check(val, n1, n2) {
         if (val === currentAns) {
             score++;
-            document.getElementById('score-display').innerText = `得分: ${score}`;
+            document.getElementById('score-display').innerText = `得分 Score: ${score}`;
             nextQuestion();
         } else {
             drawFeynman(n1, n2);
@@ -206,7 +214,6 @@
         const container = document.getElementById('dots-container');
         box.style.display = 'block';
         container.innerHTML = '';
-        
         for(let i=0; i<n1; i++) {
             let g = document.createElement('div');
             g.className = 'dot-group';
@@ -220,12 +227,16 @@
     }
 
     function showResult() {
-        const status = score >= 10 ? "🎉 太棒了！成功晉級！" : "😅 再試一次，你可以的！";
+        const isWin = score >= 10;
+        const title = isWin ? "🎉 太棒了！" : "😅 再接再厲！";
+        const sub = isWin ? "Level Cleared!" : "Keep Trying!";
+        
         document.getElementById('game-ui').innerHTML = `
-            <h2 style="font-size:2rem; margin-top:40px;">遊戲結束</h2>
-            <p style="font-size:1.5rem">${status}</p>
-            <p style="font-size:1.2rem; color:#666;">你答對了 ${score} 題</p>
-            <button class="opt-btn" style="width:100%; background:var(--forest); color:white; margin-top:20px;" onclick="location.reload()">回地圖</button>
+            <h2 style="margin-top:40px;">${title}<br><small>${sub}</small></h2>
+            <p style="font-size:1.5rem">答對 Correct: ${score}</p>
+            <button class="opt-btn" style="width:100%; background:var(--forest); color:white; margin-top:20px;" onclick="location.reload()">
+                回地圖 Back to Map
+            </button>
         `;
     }
 </script>
