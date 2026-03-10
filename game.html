@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>怪獸乘法地圖 - 費曼學習版</title>
+    <style>
+        :root { --forest: #2ECC71; --river: #3498DB; --volcano: #E74C3C; --space: #9B59B6; --bg: #F0F4F8; }
+        body { font-family: 'PingFang TC', sans-serif; background: var(--bg); display: flex; justify-content: center; margin: 0; padding: 20px; }
+        #game-container { width: 100%; max-width: 500px; background: white; padding: 20px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); text-align: center; }
+        
+        /* 地圖選擇介面 */
+        .map-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .map-card { padding: 30px 10px; border-radius: 20px; color: white; cursor: pointer; font-weight: bold; font-size: 1.2rem; transition: 0.3s; }
+        .map-card:active { transform: scale(0.9); }
+        
+        /* 遊戲介面 */
+        #game-ui { display: none; }
+        .stats { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 1.1rem; }
+        #timer-bar { width: 100%; height: 10px; background: #eee; border-radius: 5px; margin-bottom: 20px; overflow: hidden; }
+        #timer-progress { width: 100%; height: 100%; background: #FFD93D; transition: width 1s linear; }
+        #question { font-size: 4.5rem; margin: 30px 0; color: #333; }
+        .options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .opt-btn { padding: 20px; font-size: 2rem; border: none; border-radius: 15px; background: #f8f9fa; color: #333; box-shadow: 0 5px 0 #ddd; cursor: pointer; }
+        .opt-btn:active { transform: translateY(3px); box-shadow: none; }
+        
+        /* 費曼提示區 */
+        #feynman-box { margin-top: 20px; padding: 15px; background: #FFF9C4; border-radius: 15px; display: none; border: 2px dashed #FBC02D; }
+        .dot-group { display: inline-block; margin: 5px; border: 2px solid #FBC02D; padding: 3px; border-radius: 8px; background: white; }
+        .dot { display: inline-block; width: 12px; height: 12px; background: #FF6B6B; border-radius: 50%; margin: 2px; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <h2 id="main-title">乘法冒險地圖</h2>
+
+    <div id="map-select" class="map-grid">
+        <div class="map-card" style="background: var(--forest)" onclick="startLevel('2-3 森林', [2,3])">🌲 2-3 森林</div>
+        <div class="map-card" style="background: var(--river)" onclick="startLevel('4-5 河流', [4,5])">💧 4-5 河流</div>
+        <div class="map-card" style="background: var(--volcano)" onclick="startLevel('6-7 火山', [6,7])">🔥 6-7 火山</div>
+        <div class="map-card" style="background: var(--space)" onclick="startLevel('8-9 太空', [8,9])">🚀 8-9 太空</div>
+    </div>
+
+    <div id="game-ui">
+        <div class="stats">
+            <span id="current-zone">區域</span>
+            <span id="score-display">得分: 0</span>
+        </div>
+        <div id="timer-bar"><div id="timer-progress"></div></div>
+        <div id="question">6 × 7</div>
+        <div class="options" id="options-grid"></div>
+        
+        <div id="feynman-box">
+            <p style="margin:0 0 10px 0; font-weight:bold; color:#D4A017;">💡 老師怪獸教教你：</p>
+            <div id="dots-container"></div>
+            <p style="font-size:0.9rem; color:#666; margin-top:5px;">看！這就是答案的由來喔！</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    let score = 0;
+    let timeLeft = 60;
+    let timerId;
+    let currentAns = 0;
+    let activeRange = [];
+
+    function startLevel(zoneName, range) {
+        score = 0;
+        timeLeft = 60;
+        activeRange = range;
+        document.getElementById('map-select').style.display = 'none';
+        document.getElementById('game-ui').style.display = 'block';
+        document.getElementById('main-title').innerText = "衝刺中！";
+        document.getElementById('current-zone').innerText = zoneName;
+        document.getElementById('score-display').innerText = `得分: 0`;
+        
+        updateTimer();
+        nextQuestion();
+    }
+
+    function updateTimer() {
+        timerId = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timer-progress').style.width = (timeLeft/60)*100 + "%";
+            if (timeLeft <= 0) {
+                clearInterval(timerId);
+                showResult();
+            }
+        }, 1000);
+    }
+
+    function nextQuestion() {
+        document.getElementById('feynman-box').style.display = 'none';
+        const n1 = activeRange[Math.floor(Math.random() * activeRange.length)];
+        const n2 = Math.floor(Math.random() * 8) + 2;
+        currentAns = n1 * n2;
+        
+        document.getElementById('question').innerText = `${n1} × ${n2}`;
+        
+        // 產生選項
+        let options = [currentAns, currentAns + n1, currentAns - n1];
+        if (currentAns - n1 <= 0) options[2] = currentAns + 5;
+        options = [...new Set(options)].sort(() => Math.random() - 0.5);
+
+        const grid = document.getElementById('options-grid');
+        grid.innerHTML = '';
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'opt-btn';
+            btn.innerText = opt;
+            btn.onclick = () => check(opt, n1, n2);
+            grid.appendChild(btn);
+        });
+    }
+
+    function check(val, n1, n2) {
+        if (val === currentAns) {
+            score++;
+            document.getElementById('score-display').innerText = `得分: ${score}`;
+            nextQuestion();
+        } else {
+            drawFeynman(n1, n2);
+        }
+    }
+
+    function drawFeynman(n1, n2) {
+        const box = document.getElementById('feynman-box');
+        const container = document.getElementById('dots-container');
+        box.style.display = 'block';
+        container.innerHTML = '';
+        
+        for(let i=0; i<n1; i++) {
+            let g = document.createElement('div');
+            g.className = 'dot-group';
+            for(let j=0; j<n2; j++) {
+                let d = document.createElement('div');
+                d.className = 'dot';
+                g.appendChild(d);
+            }
+            container.appendChild(g);
+        }
+    }
+
+    function showResult() {
+        const status = score >= 10 ? "🎉 太棒了！成功晉級！" : "😅 再試一次，你可以的！";
+        document.getElementById('game-ui').innerHTML = `
+            <h2>遊戲結束</h2>
+            <p style="font-size:1.5rem">${status}</p>
+            <p>你答對了 ${score} 題</p>
+            <button class="opt-btn" style="width:100%; background:var(--forest); color:white;" onclick="location.reload()">回地圖</button>
+        `;
+    }
+</script>
+</body>
+</html>
